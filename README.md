@@ -38,8 +38,8 @@ This repository is structured as a progressive journey. Each topic follows a str
 |---|-------|---------------|
 | 15 | [Networking & HTTP](docs/15-networking-http.md) | [15-networking-http.md](docs/15-networking-http.md) |
 | 16 | [Python for DevOps](docs/16-python-devops.md) | [16-python-devops.md](docs/16-python-devops.md) |
-| 17 | [Python for Cloud](docs/17-python-cloud.md) | [17-python-cloud.md](docs/17-python-cloud.md) |
-| 18 | [Python for SRE & Observability](docs/18-python-sre.md) | [18-python-sre.md](docs/18-python-sre.md) |
+| 17 | [Python for Cloud](docs/17-python-cloud-boto3.md) | [17-python-cloud-boto3.md](docs/17-python-cloud-boto3.md) |
+| 18 | [Python for SRE & Observability](docs/18-python-sre-observability.md) | [18-python-sre-observability.md](docs/18-python-sre-observability.md) |
 | 19 | [Python for Kubernetes](docs/19-python-kubernetes.md) | [19-python-kubernetes.md](docs/19-python-kubernetes.md) |
 | 20 | [Python for CI/CD](docs/20-python-ci-cd.md) | [20-python-ci-cd.md](docs/20-python-ci-cd.md) |
 | 21 | [Data Engineering](docs/21-data-engineering.md) | [21-data-engineering.md](docs/21-data-engineering.md) |
@@ -52,13 +52,13 @@ This repository is structured as a progressive journey. Each topic follows a str
 |---|-------|---------------|
 | 24 | [Performance & Profiling](docs/24-performance-profiling.md) | [24-performance-profiling.md](docs/24-performance-profiling.md) |
 | 25 | [Advanced Security](docs/25-advanced-security.md) | [25-advanced-security.md](docs/25-advanced-security.md) |
-| 26 | [Advanced OOP: Metaclasses](docs/26-metaprogramming-descriptors.md) | [26-metaprogramming-descriptors.md](docs/26-metaprogramming-descriptors.md) |
-| 27 | [Design Patterns & Architecture](docs/27-design-patterns-architecture.md) | [27-design-patterns-architecture.md](docs/27-design-patterns-architecture.md) |
+| 26 | [Advanced OOP: Metaclasses](docs/26-metaprogramming.md) | [26-metaprogramming.md](docs/26-metaprogramming.md) |
+| 27 | [Design Patterns & Architecture](docs/27-design-patterns-solid.md) | [27-design-patterns-solid.md](docs/27-design-patterns-solid.md) |
 | 28 | [Database Engineering](docs/28-database-engineering.md) | [28-database-engineering.md](docs/28-database-engineering.md) |
 | 29 | [Advanced Regex](docs/29-advanced-regex.md) | [29-advanced-regex.md](docs/29-advanced-regex.md) |
-| 30 | [C-Extensions & Interop](docs/30-python-c-api-extensions.md) | [30-python-c-api-extensions.md](docs/30-python-c-api-extensions.md) |
-| 31 | [Python Internals & Memory](docs/31-internals.md) | [31-internals.md](docs/31-internals.md) |
-| 32 | [Packaging & Distribution](docs/32-packaging.md) | [32-packaging.md](docs/32-packaging.md) |
+| 30 | [C-Extensions & Interop](docs/30-c-extensions-cython.md) | [30-c-extensions-cython.md](docs/30-c-extensions-cython.md) |
+| 31 | [Python Internals & Memory](docs/31-python-internals.md) | [31-python-internals.md](docs/31-python-internals.md) |
+| 32 | [Packaging & Distribution](docs/32-packaging-distribution.md) | [32-packaging-distribution.md](docs/32-packaging-distribution.md) |
 
 ---
 

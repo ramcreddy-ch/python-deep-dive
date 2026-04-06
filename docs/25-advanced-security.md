@@ -1,129 +1,137 @@
-# 25. Advanced Security — Injection, RCE & Supply Chain Hardening
+# 25. Advanced Security — Injection, RCE & Insecure Deserialization
 
-> "In the cloud, security isn't a feature; it's a prerequisite. An expert doesn't just 'use' libraries; they audit them. They know how to prevent code execution attacks and how to secure Python applications against malicious actors."
+> "A single security hole can cost a company its entire reputation and millions of dollars. An expert doesn't 'Add Security' at the end; they design it into the core of the application by treating every input as a potential attack."
 
 ---
 
-## 🌱 The Basics: Input Sanitization
-The entry-level way to keep your app safe is to never trust user input.
+## ❓ The 'Why' (High-Level)
+Python is a powerful language, and that power can be used against you. If your web server accepts a filename from a user and opens it without checking, an attacker could read your private SSH keys. If your script uses `eval()` on a user's input, they can run **any code** they want on your server. A principal engineer knows that **Trust is the enemy of Security**.
 
-- **Injection**: An attacker sends a string like `1; rm -rf /`. If your code runs it, he has deleted your file system.
-- **Solution**: Always use **Parameterized Inputs** (like in SQL or Subprocess) that treat user text as a "String", not as "Code".
+---
 
+## 🌱 Module 1: The Basics (Junior) — The Human Factor
+The most basic security is not "Technical"—it's about hygiene.
+
+### 1. Hardcoded Secrets (The Cardinal Sin)
+**NEVER** put passwords, API keys, or database URLs in your source code.
 ```python
-import subprocess
+# Junior: bad
+SECRET_KEY = "p@ssword123"
 
-# 1. DANGER: User can inject a command like '; rm -rf'
-def unsafe_ping(host):
-    # This runs a code through a Shell (Dangerous!)
-    subprocess.run(f"ping {host}", shell=True)
-
-# 2. SECURE: Passed as a list (Safe!)
-def secure_ping(host):
-    # This treats everything as a String, not Code.
-    subprocess.run(["ping", "-c", "1", host])
+# Professional: good (using ENV variables)
+import os
+SECRET_KEY = os.getenv("APP_SECRET_KEY")
 ```
+
+### 2. Input Validation
+Check that data is what it says it is before moving forward.
+- **Example**: If you expect a "User ID", check that it's actually a number before searching the database.
 
 ---
 
-## 🌿 Intermediate: Snyk & Dependency Auditing
-`Snyk` or `pip-audit` are tools that scan your `requirements.txt` for libraries with known security bugs (CVEs).
+## 🌿 Module 2: Professional Mastery (Mid-Level) — The Injection
+Injection is the most common web attack. It happens when you mix "Data" with "Code."
 
-**Real Use (DevSecOps)**:
-Failing a CI/CD build if a security vulnerability is found in one of your packages.
-
-```bash
-# Professional Auditing: Run in your pipeline
-pip-audit
-```
-
----
-
-## 🌳 Advanced: RCE & Insecure Deserialization
-Senior engineers avoid **Pickle** for public APIs because it is vulnerable to **Remote Code Execution (RCE)**. An attacker can create a special "Model" file that, when you load it, sends all your database passwords to the attacker's server.
-
-**The Fix**: Use **JSON** or **MessagePack** for untrusted data.
-
+### 1. SQL Injection
+The most dangerous error is building a database query using an f-string.
+- **BAD**: `f"SELECT * FROM users WHERE id={user_id}"`
+- **EXPERT**: Use **Parameterized Queries**. The database driver keeps the query and the data separate, making it 100% immune to injection.
 ```python
-import json
-
-# Safe Data Loading
-def load_api_data(data_string):
-    """
-    Expert Pattern: Data Isolation. 
-    Demonstrates: Loading JSON instead of Pickle.
-    """
-    return json.loads(data_string)
+# The Expert way (SQLAlchemy)
+user = session.query(User).filter(User.id == user_id).first()
 ```
+
+### 2. Cross-Site Scripting (XSS)
+Always "Escape" user-generated content before showing it on a website, so an attacker can't inject a `<script>` that steals cookies.
 
 ---
 
-## 🔥 Expert: Vault Integration & Secret Masking
-Principal engineers use **HashiCorp Vault** or **AWS Secrets Manager** to manage keys. They also write custom logging filters to "Mask" secrets in the logs.
+## 🌳 Module 3: Advanced Mechanics (Senior) — RCE & Serialization
+Senior engineers look for the "Silent Killers" that give an attacker full control.
 
-```python
-import logging
+### 1. RCE (Remote Code Execution)
+RCE is the "Holy Grail" for hackers. It happens when an attacker can trick your Python server into running **their code**.
+- **The Evils**: `eval()`, `exec()`, and `os.system()`. **NEVER** use these on data from a user.
 
-class SecretFilter(logging.Filter):
-    """
-    Principal Pattern: Log Sanitization. 
-    Demonstrates: Preventing API keys from leaking into production logs.
-    """
-    def filter(self, record):
-        # Logic to find and mask anything that looks like an API key
-        if "sk-" in record.msg:
-            record.msg = record.msg.replace("sk-", "MASKED-")
-        return True
+### 2. Insecure Deserialization (`pickle`)
+Python's `pickle` library is not safe. An attacker can craft a malicious "pickle file" that, when loaded, runs a shell command to delete your whole server.
+- **Expert Fix**: Use **JSON** for data sharing. It's just text and cannot "run code."
 
-# logger = logging.getLogger("APP")
-# logger.addFilter(SecretFilter())
-```
+---
+
+## 🔥 Module 4: Principal Architect (Principal) — Platform Security
+At the highest level, you protect the entire "Infrastructure" from the code.
+
+### 1. Path Traversal
+If your code does `open("/home/app/files/" + filename)`, an attacker can send a filename like `../../etc/passwd` to read your system's passwords.
+- **Principal Choice**: Always use `os.path.basename()` to strip out the ".." parts.
+
+### 2. Secure Secret Handling
+A principal engineer uses a **Secrets Vault** (like AWS Secrets Manager or HashiCorp Vault) to rotate passwords automatically every 30 days without ever touching the source code.
+
+---
+
+## 🏗️ Case Study: The 20-Minute Zero-Day Fix
+A major bank's security team noticed a "Shell Command" being run by their Python-based web server.
+- **The Junior Approach**: Try searching the logs to see who did it. (Too slow, attacker was already inside).
+- **The Principal Approach**: Used **Bandit** to scan the codebase and instantly found a developer had used `pickle.load()` for a "preferences file" uploaded by the user. They immediately deployed a patch that replaced `pickle` with `JSON`.
+- **Result**: Stopped the attack before any customer data was stolen.
+
+---
+
+## ⚡ Anti-Patterns & Expert Traps
+
+### 1. The `shell=True` Trap
+When using `subprocess.run()`, setting `shell=True` allows an attacker to add a semicolon `;` and their own command to yours. **Expert fix**: Pass a **List** of arguments instead.
+
+### 2. Running as `root`
+Always run your Python application as a "Limited User" inside your container or server. If a hacker breaks into your app, they will only have limited permissions instead of "owning" the whole machine.
 
 ---
 
 ## 🎯 Top 20 Principal Interview Questions (Advanced Security)
 
-1. **Q: What is 'Command Injection' and how do you prevent it?**
-   - **Answer**: It's an attack where a user inputs OS commands (like `; rm -rf /`) into a script. Prevent it by using **List-based arguments** in `subprocess.run()` instead of `shell=True`.
-2. **Q: Why is `eval()` considered extremely dangerous?**
-   - **Answer**: `eval()` executes **any** string as Python code. If it's used on user input, it gives the user full control over your server (Remote Code Execution).
-3. **Q: Explain 'Insecure Deserialization' (Pickle).**
-   - **Answer**: `pickle.load()` can execute arbitrary code stored in the file. An attacker can create a malicious pickle file that grants them access to your system. Never unpickle data from untrusted sources.
-4. **Q: What is a 'Denial of Service' (DoS) in Python?**
-   - **Answer**: An attack that slows down or crashes a server (e.g., by sending a massive JSON file or a complex Regex that causes a ReDoS).
-5. **Q: How do you prevent 'SQL Injection' in Python?**
-   - **Answer**: **Always** use parameterized queries (e.g., `cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))`). Never use f-strings or manual string concatenation to build a query.
-6. **Q: What is 'Secrets Management'?**
-   - **Answer**: The practice of storing sensitive keys and passwords in a **secure Vault** (like AWS Secrets Manager or HashiCorp Vault) rather than hardcoding them in code or `.env` files.
-7. **Q: Explain 'Supply Chain Hardening' in Python.**
-   - **Answer**: This involves verifying that the libraries you use are safe: **Auditing** dependencies for CVEs, pinning **Exact Versions** (hashes), and ignoring untrusted repositories.
-8. **Q: What is 'ReDoS' (Regular Expression Denial of Service)?**
-   - **Answer**: A vulnerability where a malicious string is sent to a complex regex, causing the engine to "backtrack" endlessly and consume 100% of the CPU.
-9. **Q: What is a 'Timing Attack' and how can Python be vulnerable?**
-   - **Answer**: An attack where an attacker can figure out a secret (like a password) by measuring how long a function takes to execute. In Python, use `secrets.compare_digest()` for safe comparisons.
-10. **Q: What is the purpose of the `secrets` module?**
-    - **Answer**: To generate **cryptographically strong** random numbers for passwords, secrets, and security tokens. Standard `random` is predictable and NOT safe for security.
-11. **Q: Explain 'JWT' (JSON Web Token) security concerns.**
-    - **Answer**: Ensure tokens are **Signed** (using a secret) and preferably **Encrypted**. Always check the expiration (`exp`) and the signature before trusting the token.
-12. **Q: What is 'Hashing' and why do we never store passwords in 'Plain Text'?**
-    - **Answer**: Hashing is a one-way mathematical function. We store only the **Hash** of the password. If the database is stolen, the attacker can't read the real passwords. Use **bcrypt** or **Argon2**.
-13. **Q: What is a 'Man-in-the-Middle' (MITM) attack?**
-    - **Answer**: When an attacker intercepts the communication between two systems. Prevent this by using **SSL/TLS** (HTTPS) for all API calls and verifying SSL certificates in `requests`.
-14. **Q: What is 'Least Privilege' in a Python environment?**
-    - **Answer**: Running your Python application with the **minimum** permissions it needs (e.g., a "Read-Only" database user or a Limited ServiceAccount in Kubernetes).
-15. **Q: How do you perform 'Log Sanitization'?**
-    - **Answer**: By adding filters to your logger that automatically remove or "Mask" sensitive data (like `sk-` API keys, credit card numbers, or passwords) before they are written to a file.
-16. **Q: What is 'Cryptographic Salt' and why is it used?**
-    - **Answer**: A random string added to a password before hashing. It ensures that two users with the same password have different hashes, making 'Rainbow Table' attacks impossible.
-17. **Q: What is the difference between 'Symmetric' and 'Asymmetric' encryption?**
-   - **Answer**: **Symmetric**: The same key is used to lock and unlock (fast). **Asymmetric**: different keys (Public/Private) are used to lock and unlock (secure for transferring data over the internet).
-18. **Q: What is 'CVE' (Common Vulnerabilities and Exposures)?**
-    - **Answer**: A public list of known security vulnerabilities. Senior engineers use tools like `pip-audit` to check their projects against this list daily.
-19. **Q: What is 'XSS' (Cross-Site Scripting)?**
-    - **Answer**: An attack where a malicious script is injected into a website. While Python is backend, you must **Escape** all user input before outputting it into HTML to prevent this.
-20. **Q: How do you handle 'File Upload' security in Python?**
-    - **Answer**: Never trust the filename. Use a standard library to "Sanitize" the filename, limit the file size, and check the file content (MIME type) before saving it to the disk.
+1. **Q: What is 'SQL Injection' and how do you prevent it?**
+   - **Answer**: it's an attack where a user inputs malicious SQL code into a form to bypass security or steal data. Prevent it by using **Parameterized Queries** or an **ORM** (like SQLAlchemy), which separates the code from the data.
+2. **Q: Why is the `eval()` function considered extremely dangerous?**
+   - **Answer**: it executes a string as literal Python code. If an attacker can control that string, they can run **any command** on your server, including deleting files or stealing data.
+3. **Q: Explain the risk of using the `pickle` module.**
+   - **Answer**: `pickle` files can execute code upon being loaded (`__reduce__` method). If you load a pickle file from an untrusted user, it can result in **Remote Code Execution (RCE)**.
+4. **Q: What is 'Cross-Site Scripting' (XSS)?**
+   - **Answer**: An attack where a malicious script (JavaScript) is injected into a trusted website. This is typically done by saving the script as user content (like a comment) which is then executed in the browsers of other visitors.
+5. **Q: What is 'Path Traversal' and how do you mitigate it?**
+   - **Answer**: An attack where a user tries to access files outside the intended directory (e.g., using `../../`). Mitigate it by using `os.path.basename()` or `pathlib.Path.resolve()` to validate the final path.
+6. **Q: What does the `shell=True` flag in `subprocess.run()` do and why is it risky?**
+   - **Answer**: It passes the command string to the system shell (e.g., `/bin/sh`). This is risky because it allows for **Shell Injection** if the string contains unvalidated user input.
+7. **Q: How should you store 'Secrets' (Passwords/API Keys) for a production application?**
+   - **Answer**: NEVER in the source code. Use **Environment Variables**, **Secret Managers** (AWS KMS/HashiCorp Vault), or **GitHub Secrets** for CI/CD pipelines.
+8. **Q: Explain 'Insecure Deserialization'.**
+   - **Answer**: The process of taking untrusted data (like a stream of bytes) and turning it back into an object. If the deserializer is powerful (like `pickle` or `yaml.load`), it can be tricked into running code.
+9. **Q: What is 'CSRF' (Cross-Site Request Forgery)?**
+   - **Answer**: An attack that tricks a logged-in user into performing an action they didn't intend (e.g., clicking a link that secretly sends a "Change Password" request to a site where they are logged in).
+10. **Q: What is the purpose of 'Bandit' in a Python project?**
+    - **Answer**: It is a security-focused **Linter** that scans Python source code for common security "Sins" like `shell=True`, hardcoded passwords, and use of insecure libraries.
+11. **Q: How can you protect against 'Brute-Force' attacks?**
+    - **Answer**: By implementing **Rate Limiting** (preventing too many requests from the same IP) and **Account Lockout policies**.
+12. **Q: What is 'JWT' (JSON Web Token) and how should it be secured?**
+    - **Answer**: A token used for authentication. It must be **Digitally Signed** using a strong secret and should ideally be stored in an `HttpOnly` cookie to prevent theft via XSS.
+13. **Q: Why should an application ever be run as the `root` user?**
+    - **Answer**: **NEVER**. If an attacker finds a vulnerability in a `root` application, they have full control over the entire operating system.
+14. **Q: What is 'PII' and why is logging it dangerous?**
+    - **Answer**: **Personally Identifiable Information** (e.g., email, SSN). Logging it is dangerous because logs are often stored in less secure developer environments, increasing the risk of a data breach.
+15. **Q: Explain 'Security Headers' (like HSTS or CSP).**
+    - **Answer**: Instructions sent by the server to the browser to enable security features (e.g., "Always use HTTPS" or "Only run scripts from this domain").
+16. **Q: What is the risk of using `yaml.load()` without the `SafeLoader`?**
+    - **Answer**: Similar to `pickle`, the standard YAML loader in old versions can be tricked into instantiating arbitrary Python objects, leading to Code Execution.
+17. **Q: What is a 'Man-in-the-Middle' (MITM) attack and how do you prevent it?**
+    - **Answer**: When an attacker intercepts the traffic between a client and a server. It is prevented by using **End-to-End Encryption** (HTTPS/TLS).
+18. **Q: What is 'Data Masking'?**
+    - **Answer**: The process of hiding or anonymizing sensitive data (e.g., `XXXX-XXXX-XXXX-1234`) when it is being viewed by people who don't need the full information.
+19. **Q: How does 'Hashing' differ from 'Encryption'?**
+    - **Answer**: **Hashing** is a one-way transformation (you can't "unhash" a password). **Encryption** is two-way (you can unlock it with a key). Passwords should ALWAYS be hashed.
+20. **Q: What is 'Secrets Rotation' and why is it important at the principal level?**
+    - **Answer**: The process of automatically changing passwords and keys on a schedule (e.g., every 90 days). This ensures that if a key is stolen, its usefulness is limited in time.
 
 ---
 
-[← Previous: Performance](24-performance-profiling.md) | [Next: Advanced OOP →](26-metaprogramming-descriptors.md)
+[Previous: Performance](24-performance-profiling.md) | [Next: Metaprogramming →](26-metaprogramming.md)

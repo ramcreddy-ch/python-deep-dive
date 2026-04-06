@@ -1,120 +1,144 @@
-# 29. Advanced Regex — Complex Text Extraction & Backtracking
+# 29. Advanced Regex & Strings — Pattern Matching & Text Processing
 
-> "Regex is the 'Secret Language' of text processing. A junior uses it to find a word; an expert uses Lookaheads and Non-Capturing Groups to build high-performance log extractors and security filters that process millions of lines per second."
+> "Some people, when confronted with a problem, think 'I know, I'll use regular expressions.' Now they have two problems. However, an expert knows that Regex is the most powerful weapon in the developer's arsenal for 'Data Extraction', 'Log Parsing', and 'Input Validation'."
 
 ---
 
-## 🌱 The Basics: Character Classes
-The entry-level way to find patterns in text.
+## ❓ The 'Why' (High-Level)
+In the real world, data is messy. It's often "Unstructured Text"—like a log file, an email body, or a website's HTML. If you try to find an email address using just `if...else` statements, you will write 1,000 lines of code. **Regular Expressions (Regex)** allow you to write a single-line "Pattern" that describes the data you want. A principal engineer uses Regex to "Extract" signals from a "Noise" of millions of characters in milliseconds.
 
-- `\d`: Digit (0-9).
-- `\w`: Word (A-Z, 0-9, _).
-- `\s`: Whitespace (tab, space).
+---
 
+## 🌱 Module 1: The Basics (Junior) — The Search
+Regex is about "Describing" a string rather than "Naming" it.
+
+### 1. The Survival Kit: Searching
 ```python
 import re
+text = "The user's email is ram@work.com"
+# Searching for an email pattern
+match = re.search(r"\w+@\w+\.com", text)
+if match: print(f"Found: {match.group()}")
+```
 
-# 1. Find all numbers in a string
-nums = re.findall(r"\d+", "Error at line 102 and 105")
-# Output: ["102", "105"]
+### 2. Basic Wildcards
+- **`.`**: Any character.
+- **`*`**: Zero or more times.
+- **`+`**: One or more times.
+
+---
+
+## 🌿 Module 2: Professional Mastery (Mid-Level) — Character Classes
+Mid-level engineers use "Shortcuts" to describe data types.
+
+### 1. Common Shortcuts
+- **`\d`**: Any Digit (0-9).
+- **`\w`**: Any Word character (a-z, 0-9, _).
+- **`\s`**: Any Whitespace (space, tab, newline).
+
+### 2. Groups `()`
+Groups allow you to extract specific **parts** of a match.
+- **Example**: Searching for "ID: 123" and only extracting the "123".
+
+---
+
+## 🌳 Module 3: Advanced Mechanics (Senior) — Lookarounds
+Senior engineers use "Checkpoints" to match text ONLY if it is followed or preceded by something else.
+
+### 1. Lookahead `(?=...)`
+Find "Python" only if it is followed by "Masterclass."
+```python
+re.findall(r"Python(?= Masterclass)", "Python Masterclass vs Python Basics")
+# Returns: ['Python'] (only the first one!)
+```
+
+### 2. Named Groups `(?P<name>...)`
+Instead of using group numbers like `group(1)`, give them **Names** so your code is more readable.
+- **Regex**: `(?P<year>\d{4})-(?P<month>\d{2})`
+- **Code**: `match.group("year")`
+
+---
+
+## 🔥 Module 4: Principal Architect (Principal) — The "Nuclear Ops"
+At the highest level, you manage the "Complexity" and "Safety" of the regex engine.
+
+### 1. Catastrophic Backtracking
+Some "bad" regex patterns (e.g., `(a+)+$`) can take **trillions of years** to run on a long string of "aaaaaab". This will crash your server (ReDoS attack).
+- **Expert fix**: Be specific. Never use "nested" quantifiers on wildcards.
+
+### 2. Verbose Regex (`re.VERBOSE`)
+Regex is notoriously hard to read. A principal engineer uses `VERBOSE` to add **Comments** and **Newlines** to their patterns.
+```python
+pattern = re.compile(r"""
+    (?P<user>\w+)  # Match the username
+    @              # Match the @ symbol
+    (?P<domain>\w+) # Match the domain
+""", re.VERBOSE)
 ```
 
 ---
 
-## 🌿 Intermediate: Named Groups
-`Named Groups` allow you to extract specific parts of a match into a dictionary-like object.
-
-**Real Use (SRE/Log Analysis)**:
-Extracting the IP and Status from a standard server log.
-
-```python
-import re
-
-log = '192.168.1.101 - - [06/Apr] "GET /index" 200 512'
-# 1. Using (?P<name>...)
-pattern = r"(?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}).* (?P<status>\d{3}) (?P<size>\d+)"
-
-match = re.search(pattern, log)
-if match:
-    print(f"IP: {match.group('ip')} | Status: {match.group('status')}")
-```
+## 🏗️ Case Study: The 50-Format Log Parser
+A cybersecurity company needed to parse logs from 50 different firewalls (Cisco, Juniper, etc.), all with different time formats.
+- **The Junior Approach**: Write 50 different `if...else` functions. (Incredibly slow and buggy).
+- **The Principal Approach**: Built a single, **Multi-line Verbose Regex**. It used "Optional Groups" `(...)?` to account for the different fields.
+- **Result**: Reduced the parser code from 4,000 lines to **40 lines**, making it 10x faster to maintain.
 
 ---
 
-## 🌳 Advanced: Lookaheads & Lookbehinds
-Senior engineers use **Assertions** to match a word only if it is followed (or preceded) by another specific word, without including that second word in the match.
+## ⚡ Anti-Patterns & Expert Traps
 
-- **Lookahead `(?=...)`**: Check if the next characters match a pattern.
+### 1. Regex for HTML
+**NEVER** use Regex to parse HTML or XML (e.g., `<a href="(.*)">`). HTML is too complex for regex and will eventually break. **Expert fix**: Use a parser like **BeautifulSoup**.
 
-```python
-# Match 'Ramchandra' only if followed by 'Chintala'
-# Output: ["Ramchandra"] (the surname is NOT part of the match)
-match = re.findall(r"Ramchandra(?= Chintala)", "Ramchandra Chintala")
-```
-
----
-
-## 🔥 Expert: Backtracking & ReDoS Security
-Principal engineers understand that Regex is a **State Machine**. 
-
-### 1. The Greedy Trap
-`.*` is "Greedy" (it matches as much as possible). Use `.*?` (Lazy) to match only what is needed.
-
-### 2. ReDoS (Regular Expression Denial of Service)
-A malicious user can send a 100-character string that takes 5 minutes to process, crashing your application. This happens with "Nested Quantifiers" like `(a+)+$`.
-
-```python
-# Principal Pattern: Safe Regex. 
-# 1. Avoid nested quantifiers.
-# 2. Use 'Atomic Groups' where possible.
-# 3. Always set a timeout if processing untrusted user input.
-```
+### 2. Greedy Matching `.*`
+By default, `.*` matches as much as possible. If you try to find text between `"quotes"`, it might match everything from the first quote to the **last** quote in the whole file. **Expert fix**: Use **Non-Greedy** matching `.*?`.
 
 ---
 
 ## 🎯 Top 20 Principal Interview Questions (Advanced Regex)
 
-1. **Q: What is the difference between `re.search()` and `re.match()`?**
-   - **Answer**: `re.match()` checks for a pattern only at the **Beginning** of the string. `re.search()` scans the **Entire** string for the first match it finds.
-2. **Q: Explain 'Greedy' vs 'Lazy' (Non-Greedy) matching.**
-   - **Answer**: **Greedy** (`*`, `+`) tries to match as much text as possible. **Lazy** (`*?`, `+?`) tries to match as **Little** as possible to satisfy the pattern.
-3. **Q: What is a 'Non-Capturing Group' `(?:...)` and why use it?**
-   - **Answer**: It groups logic (like an OR `(A|B)`) but tells the Regex engine **not to store the match in memory**. This is a high-performance optimization for scanning millions of logs.
-4. **Q: What are 'Named Groups' `(?P<name>...)`?**
-   - **Answer**: They allow you to assign a **Label** to a part of the matching pattern, making it much easier to extract data into a dictionary-like object (`match.group('name')`).
-5. **Q: What is 'ReDoS' (Regular Expression Denial of Service)?**
-   - **Answer**: A security vulnerability where a complex regex takes an extreme amount of CPU time to process a specific input, potentially crashing the entire application.
-6. **Q: Explain 'Lookahead' and 'Lookbehind' assertions.**
-   - **Answer**: They allow you to match a pattern only if it is **followed by** (`(?=...)`) or **preceded by** (`(?<=...)`) another pattern, but without including that second pattern in the actual match result.
-7. **Q: What is 'Backtracking' in a Regex engine?**
-   - **Answer**: The process where the engine "Gives Up" on a partial match and goes back to try a different path. Excessive backtracking is what causes ReDoS.
-8. **Q: How do you handle 'Multiple Lines' in a long log file?**
-   - **Answer**: Using the `re.MULTILINE` (or `re.M`) flag. This allows `^` and `$` to match the beginning and end of **each line** instead of just the whole string.
-9. **Q: What is the `re.compile()` function and why use it?**
-   - **Answer**: It "Pre-compiles" a regex pattern into a reusable object. If you are using the same pattern 1,000,000 times in a loop, pre-compiling is much faster because it only parses the pattern once.
-10. **Q: What is the difference between `re.findall()` and `re.finditer()`?**
-    - **Answer**: `findall()` returns a **List** of all matches (consuming memory). `finditer()` returns an **Iterator** (saving memory), which is preferred for massive text files.
-11. **Q: How do you escape special characters (like `.` or `*`) in a pattern?**
-    - **Answer**: Use a backslash (`\.`, `\*`) or use `re.escape(string)` to systematically escape all special characters in a piece of raw text.
-12. **Q: What is 'Atomic Grouping' (available in some libraries, not CPython)?**
-    - **Answer**: A pattern that tells the engine "Once you match this, don't ever backtrack into it." It's a key security measure against ReDoS.
-13. **Q: What does the `.` (dot) character NOT match by default?**
-    - **Answer**: It does not match the **Newline** character (`\n`). Use the `re.DOTALL` flag to make it match everything.
-14. **Q: Explain the `\b` (Word Boundary) character.**
-    - **Answer**: It matches the position between a word character (`\w`) and a non-word character. Use it to find a whole word (like "cat") without matching it inside another word (like "catalog").
-15. **Q: What is 'Backreferencing' in a pattern?**
-    - **Answer**: The ability to refer to a previous match in the same pattern (e.g., `(abc)\1` matches "abcabc").
-16. **Q: How do you replace all occurrences of a pattern in a string?**
-    - **Answer**: `re.sub(pattern, replacement, string)`.
-17. **Q: What is a 'Verbal' Regex?**
-    - **Answer**: Using the `re.VERBOSE` flag to allow **Comments** and whitespace inside your pattern, making complex regex much easier for a team to read and maintain.
-18. **Q: How do you handle case-insensitive matching?**
-    - **Answer**: Use the `re.IGNORECASE` (or `re.I`) flag.
-19. **Q: What is the difference between `\d` and `[0-9]`?**
-    - **Answer**: In Python 3, `\d` matches **Any Unicode Digit** (including Arabic or Hindi numbers), whereas `[0-9]` matches **only** ASCII numbers. Use `re.ASCII` if you want `\d` to only match 0-9.
-20. **Q: Why should you avoid "Nested Quantifiers" (like `(a+)+$`)?**
-    - **Answer**: They are the most common cause of **Exponential Backtracking**, which leads directly to ReDoS vulnerabilities.
+1. **Q: What is the difference between `re.match()` and `re.search()`?**
+   - **Answer**: `re.match()` only checks for a match at the **Beginning** of the string. `re.search()` checks for a match **Anywhere** in the string.
+2. **Q: What does the `r` prefix (raw string) do in regex?**
+   - **Answer**: It tells Python to ignore "Backslashes" (`\`). Without it, `\n` is interpreted as a newline. With it, `\n` is passed directly to the regex engine as two characters.
+3. **Q: Explain 'Greedy' vs 'Non-Greedy' matching.**
+   - **Answer**: **Greedy** (`*`) tries to match the longest possible string. **Non-Greedy** (`*?`) tries to match the shortest possible string.
+4. **Q: What is a 'Capture Group'?**
+   - **Answer**: A part of a regex enclosed in parentheses `()`. It allows you to extract or refer back to a specific portion of the entire match.
+5. **Q: How do you perform a 'Global' search (finding all matches)?**
+   - **Answer**: Using `re.findall()` (returns a list of strings) or `re.finditer()` (returns an iterator of match objects, which is better for large data).
+6. **Q: What are 'Anchors' (`^` and `$`)?**
+   - **Answer**: `^` marks the **Start** of a string. `$` marks the **End** of a string. They ensure the pattern matches the entire line, not just a portion of it.
+7. **Q: What is the purpose of `re.compile()`?**
+   - **Answer**: It "pre-calculates" the regex pattern into a reusable object. If you are using the same regex 1,000,000 times, compiling it saves significant time.
+8. **Q: Explain 'Lookahead' and 'Lookbehind'.**
+   - **Answer**: They are "Checkpoints" that match text only if it's followed by (`Lookahead`) or preceded by (`Lookbehind`) another pattern, but won't include that other pattern in the final match.
+9. **Q: What is 'Catastrophic Backtracking'?**
+   - **Answer**: A performance nightmare where a poorly written regex takes an exponential amount of time to fail on a non-matching string, effectively freezing the CPU.
+10. **Q: What is a 'Backreference'?**
+    - **Answer**: Referring back to a previously captured group within the same regex (e.g., `(\w+)\s+\1` matches repeated words like "the the").
+11. **Q: How do you handle 'Multiple Lines' with one regex?**
+    - **Answer**: By using the `re.MULTILINE` flag. This makes `^` and `$` match the start and end of **Every Line**, rather than just the start and end of the entire string.
+12. **Q: What does the `re.DOTALL` flag do?**
+    - **Answer**: By default, the `.` (dot) matches everything EXCEPT a newline. `DOTALL` makes the dot match newline characters as well.
+13. **Q: What is the purpose of `re.VERBOSE`?**
+    - **Answer**: It ignores whitespace and allows for **Comments** inside the regex string, making the pattern much easier to read and maintain for humans.
+14. **Q: How do you substitute text using Regex?**
+    - **Answer**: Using `re.sub(pattern, replacement, string)`.
+15. **Q: What is a 'Character Class'?**
+    - **Answer**: A set of characters enclosed in square brackets `[abc]`. It matches any **one** of those characters. You can also use ranges like `[a-z0-9]`.
+16. **Q: What is the difference between `\s` and `\S`?**
+    - **Answer**: Lowercase `\s` matches any **Whitespace**. Uppercase `\S` matches anything that is **NOT** whitespace. (All caps usually means "NOT").
+17. **Q: How do you match a literal `.` (dot)?**
+    - **Answer**: Since the dot is a special wildcard, you must **Escape** it with a backslash: `\.`.
+18. **Q: What is 'Atomic Grouping'?**
+    - **Answer**: A way to disable "Backtracking" for a specific group, preventing performance issues on "bad" input strings.
+19. **Q: Can Regex be used for 'Email Validation' reliably?**
+    - **Answer**: Technically yes, but the official email spec is so complex that the resulting regex would be thousands of characters long. In production, use a library or just check for an `@` and a `.`.
+20. **Q: How can you find the indices (start/end) of a match?**
+    - **Answer**: By using the `.start()` and `.end()` methods of the match object returned by `re.search()`.
 
 ---
 
-[← Previous: Database Engineering](28-database-engineering.md) | [Next: C-Extensions →](30-python-c-api-extensions.md)
+[Previous: Databases](28-database-engineering.md) | [Next: C-Extensions & Cython →](30-c-extensions-cython.md)

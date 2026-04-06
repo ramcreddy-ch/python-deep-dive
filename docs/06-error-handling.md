@@ -1,141 +1,173 @@
-# 06. Error Handling & Debugging — Exceptions, Context & Resilience
+# 06. Error Handling & Resilience — Failures, Context & Tracebacks
 
-> "In production, code doesn't just run; it fails. An expert doesn't just 'fix' bugs; they build systems that handle failure gracefully, log correctly, and recover automatically without human intervention."
+> "In production, code doesn't just run; it fails. An expert doesn't just 'fix' bugs; they build systems that handle failure gracefully, log correctly, and recover automatically without manual intervention. Mastering error handling is the difference between an 'App' and a 'Service'."
 
 ---
 
-## 🌱 The Basics: Try-Except
-Entry-level error handling allows your program to "ignore" a crash and continue.
+## ❓ The 'Why' (High-Level)
+Failures are inevitable: network timeouts, malformed user input, or missing database rows. If your code isn't prepared, it crashes, causing downtime and lost revenue. A principal engineer designs for **Resilience**, ensuring that a single error in a non-critical component (like a logger) doesn't bring down the entire payment gateway.
 
-- **try**: The code you expect might fail.
-- **except**: What to do if it fails.
-- **finally**: Code that runs NO MATTER WHAT (e.g., closing a file).
+---
 
+## 🌱 Module 1: The Basics (Junior) — The Core Catch
+To stop a crash, you must "catch" the error before it hits the operating system.
+
+### 1. The `try-except` Block
+This is the basic safety net.
 ```python
 try:
-    with open("config.json") as f:
-        data = f.read()
+    x = 10 / 0
+except ZeroDivisionError:
+    print("You can't divide by zero!")
+```
+
+### 2. Common Exception Types
+- **ValueError**: Right type, wrong value (e.g., `int("abc")`).
+- **TypeError**: Wrong operation for the type (e.g., `5 + "10"`).
+- **IndexError**: Trying to access a list index that doesn't exist.
+
+---
+
+## 🌿 Module 2: Professional Mastery (Mid-Level) — Clean Cleanup
+Mid-level engineers ensure that resources (like open files) are always closed, even if an error occurs.
+
+### 1. `finally` and `else`
+- **`finally`**: Code that runs **no matter what** (good for closing files).
+- **`else`**: Code that runs **only if no error occurred**.
+```python
+try:
+    f = open("data.txt")
 except FileNotFoundError:
-    print("Config file not found! Using defaults.")
+    print("File missing!")
+else:
+    print("File read successfully!")
 finally:
-    print("Execution complete.")
+    f.close()  # Guaranteed to run.
 ```
 
----
-
-## 🌿 Intermediate: Raising Exceptions
-Don't just catch errors; **Throw them** (Raise) when your logic detects a problem.
-
-**Expert Rule**:
-Always raise specific exceptions (e.g., `ValueError`) rather than the generic `Exception`.
-
+### 2. Custom Exceptions
+Don't use generic `ValueError` for everything. Create your own for business logic.
 ```python
-def set_age(age):
-    if age < 0:
-        raise ValueError("Age cannot be negative!")
-    print(f"Age set to {age}")
-```
-
----
-
-## 🌳 Advanced: Custom Exception Hierarchies
-Professional libraries create their own exception "Tree" to make debugging easier for their users.
-
-**Real Use (API/Platform)**:
-A custom error for an internal API client.
-
-```python
-class AppError(Exception):
-    """Base class for all app errors."""
+class InsufficientFundsError(Exception):
+    """Raised when a user tries to withdraw more than their balance."""
     pass
 
-class APIConnectionError(AppError):
-    """Raised when the backend API is unreachable."""
-    pass
-
-# Usage
-# raise APIConnectionError("Timeout after 3 retries")
+def withdraw(amount, balance):
+    if amount > balance:
+        raise InsufficientFundsError(f"Needed {amount}, but only had {balance}")
 ```
 
 ---
 
-## 🔥 Expert: Resilience & Retry (Exponential Backoff)
-For principal engineering, "Error Handling" means building a system that doesn't quit. 
+## 🌳 Module 3: Advanced Mechanics (Senior) — Context Managers
+Senior engineers use the **`with` statement** (The Context Manager protocol) to automate resource management.
 
-### 1. The Retry Pattern
-If a Cloud API call fails due to a temporary network blip, don't crash. **Wait and try again.**
-
-### 2. Exponential Backoff
-Wait 1s, then 2s, then 4s, then 8s. This prevents "Hammering" a failing server and gives it time to recover.
-
+### 1. The `with` Statement
+Instead of `finally: f.close()`, just use `with`:
 ```python
-import time
-import random
-
-def call_api_with_retry(attempts=3):
-    """
-    Expert Pattern: Exponential Backoff. 
-    Demonstrates: Building a resilient automation script.
-    """
-    for i in range(attempts):
-        try:
-            # Simulate a flakey API
-            if random.random() < 0.7:
-                raise ConnectionError("Service Unavailable")
-            return "SUCCESS"
-        except ConnectionError as e:
-            wait_time = 2**i # 1, 2, 4 seconds
-            print(f"Attempt {i+1} failed ({e}). Retrying in {wait_time}s...")
-            time.sleep(wait_time)
-            
-    raise Exception("Max retries exceeded!")
+with open("data.txt") as f:
+    data = f.read()
+# File is automatically closed here, even if f.read() crashes!
 ```
+
+### 2. Exception Chaining
+Sometimes you want to catch one error and raise a different one, but keep the "History" of the original.
+```python
+try:
+    db.save(data)
+except DatabaseError as e:
+    # 'from e' attaches the original traceback to the new one!
+    raise APIError("Failed to process transaction") from e
+```
+
+---
+
+## 🔥 Module 4: Principal Architect (Principal) — Resilient Systems
+At the highest level, you handle **Multiple concurrent errors** and optimize for the "Happy Path."
+
+### 1. Exception Groups (Python 3.11+)
+In modern async systems, multiple tasks might fail at once. Python uses `ExceptionGroup` and the `except*` syntax to catch them.
+```python
+# python 3.11+
+try:
+    run_complex_tasks()
+except* ValueError as eg:
+    handle_value_errors(eg)
+except* NetworkError as eg:
+    retry_network(eg)
+```
+
+### 2. The Cost of Exceptions
+Python's `try/except` block is **Zero-Cost** in modern versions if no error happens. However, when an error *is* raised, generating the **Traceback object** is expensive.
+- **Principal Advice**: Never use Exceptions for "Expected" control flow (like checking if a file exists). Use an `if` check instead.
+
+---
+
+## 🏗️ Case Study: The Self-Healing API
+A global streaming service was losing 1% of traffic due to intermittent network "blips" during API calls.
+- **The Junior Approach**: Add `try-except` and log the error. (User still sees a failure).
+- **The Principal Approach**: Built a **Retry Wrapper** using the `tenacity` library. It caught specific `NetworkError` types and automatically retried the request with "Exponential Backoff" (waiting 1s, then 2s, then 4s).
+- **Result**: API success rate increased from 99% to 99.99%, saving the company millions in customer support calls.
+
+---
+
+## ⚡ Anti-Patterns & Expert Traps
+
+### 1. The Bare `except:`
+**NEVER** do this: `except: pass`. It swallows every error, including keyboard interrupts (Ctrl+C) and system errors, making it impossible to debug.
+- **Expert Fix**: Always catch a specific class: `except Exception:`.
+
+### 2. Silencing Errors with `pass`
+If you catch an error and do nothing, you are hiding a problem that will likely cause a bigger crash later. **Always log** or re-raise.
+
+### 3. Deep Nesting in Try Blocks
+Keep your `try` blocks as **small** as possible to avoid catching an error you didn't expect.
 
 ---
 
 ## 🎯 Top 20 Principal Interview Questions (Error Handling)
 
-1. **Q: What is the difference between `raise e` and `raise from e`?**
-   - **Answer**: `raise e` throws the exception as if it just happened. `raise from e` (Exception Chaining) explicitly links the new error to the original one. This allows a developer to see the full "Cause Chain" in the traceback, which is essential for debugging complex microservices.
-2. **Q: Why is 'Silent Failure' (using an empty `except: pass`) dangerous?**
-   - **Answer**: It suppresses the error without logging it. If a database connection fails, the app might continue running with "None" data, causing much harder-to-find bugs later in the execution. Always at least log the error or catch a specific exception.
-3. **Q: What is the purpose of the `finally` block?**
-   - **Answer**: It is used to define "Cleanup" actions that must run regardless of whether an error occurred or not (e.g., closing a network socket or a database connection).
-4. **Q: What is the `else` block in a `try/except` used for?**
-   - **Answer**: It runs ONLY if **no** exception was raised. It's useful for logic that should only proceed if the `try` block was successful, separating the "Success" path from the "Error" path.
-5. **Q: How do you create a Custom Exception?**
-   - **Answer**: By creating a class that inherits from the built-in `Exception` class. This allows you to catch specific business errors separately from general system errors.
-6. **Q: What is the MRO of Exceptions?**
-   - **Answer**: Exceptions are organized in a hierarchy. Catching `Exception` will catch almost everything. Catching `BaseException` will even catch things like KeyboardInterrupt (Ctrl+C), which is usually not desired.
-7. **Q: Explain 'Assertion' in Python.**
-   - **Answer**: Using `assert condition, "Error Message"`. It is used for internal sanity checks during development. Note: Assertions can be disabled in production using the `-O` flag, so never use them for critical business logic.
-8. **Q: How do you handle multiple exceptions in a single `except` block?**
-   - **Answer**: Use a tuple: `except (TypeError, ValueError):`.
-9. **Q: What is the `traceback` module used for?**
-   - **Answer**: It allows you to programmatically extract and print the full call stack when an error occurs, which is essential for logging errors to a file or a database.
-10. **Q: What is the 'Retry' pattern with 'Exponential Backoff'?**
-    - **Answer**: A strategy where you retry a failed operation (like a network call) after waiting for an increasing amount of time (1s, 2s, 4s, 8s). It avoids overloading a recovering service.
-11. **Q: How do you log an error with the full traceback included?**
-    - **Answer**: Use `logging.error("Message", exc_info=True)`.
-12. **Q: What is the difference between `SystemExit` and `KeyboardInterrupt`?**
-    - **Answer**: `SystemExit` is raised when `sys.exit()` is called. `KeyboardInterrupt` is raised when the user presses Ctrl+C. Both inherit from `BaseException`, not `Exception`.
-13. **Q: Can you catch a `SyntaxError`?**
-    - **Answer**: No, not within the same script that contains it. A `SyntaxError` occurs during the **Parsing** phase, before the code ever starts running. You can only catch it if you are using `exec()` or `eval()` on external code.
-14. **Q: What is the purpose of `raise` without any arguments?**
-    - **Answer**: It **Re-raises** the last active exception. It's used when you want to log an error but still let the calling function handle it.
-15. **Q: What is 'EAFP' vs 'LBYL'?**
-    - **Answer**: **EAFP** (Easier to Ask for Forgiveness than Permission) — just try the action and catch the error. **LBYL** (Look Before You Leap) — check if the file exists before trying to open it. Python strongly prefers EAFP.
-16. **Q: What is an 'Exception Context'?**
-    - **Answer**: When one exception is raised while handling another, the original exception is stored in the `__context__` attribute of the new one.
-17. **Q: How do you access the error message inside an `except` block?**
-    - **Answer**: Use `as`: `except ValueError as e: print(str(e))`.
-18. **Q: What happens if a `finally` block contains a `return` statement?**
-    - **Answer**: The `finally` block's return will **Overwrite** any return from the `try` or `except` blocks. This is a common "Gotcha" in advanced interviews.
-19. **Q: What is the purpose of `unittest.mock.side_effect`?**
-    - **Answer**: during testing, it allows a Mock object to **Raise an Exception** when called, simulating a failure in an external service.
-20. **Q: What is the difference between a 'Warning' and an 'Exception'?**
-    - **Answer**: Warnings don't stop the program. They are used to alert the developer to potential future problems (like a deprecated function). Exceptions are "Hard" errors that stop execution unless caught.
+1. **Q: What is the difference between a 'Syntax Error' and an 'Exception'?**
+   - **Answer**: A **Syntax Error** happens while the code is being parsed (before it even runs). An **Exception** occurs while the code is already running (e.g., a division by zero).
+2. **Q: Why is a bare `except:` clause considered dangerous?**
+   - **Answer**: It catches **every** error, including system exits like `SystemExit` or `KeyboardInterrupt`. This makes it impossible to stop a running script and hides bugs that should be fixed.
+3. **Q: Explain the purpose of the `finally` block.**
+   - **Answer**: It defines code that **must** run, regardless of whether an error occurred or was caught. It's the standard place for cleanup tasks like closing database connections.
+4. **Q: What is the `else` block used for in a `try/except` statement?**
+   - **Answer**: It runs only if the code in the `try` block **did not raise an exception**. It's useful for logic that should only happen after a successful operation.
+5. **Q: What is the proper way to manually raise an exception?**
+   - **Answer**: Using the `raise` keyword, followed by an exception instance: `raise ValueError("Invalid entry")`.
+6. **Q: What is 'Exception Chaining' and why is it useful?**
+   - **Answer**: The industry practice of catching one exception and raising another while preserving the original traceback using `raise NewError() from original_error`. This provides a complete "audit trail" of the failure.
+7. **Q: Explain the 'Context Manager' protocol.**
+   - **Answer**: It's a set of methods (`__enter__` and `__exit__`) that allow objects to manage resources automatically within a `with` statement.
+8. **Q: What is the difference between `Exception` and `BaseException`?**
+   - **Answer**: `BaseException` is the root of all exceptions. `Exception` is the parent of all **Standard** errors. System-level exits (`KeyboardInterrupt`, `SystemExit`) inherit from `BaseException` but NOT from `Exception`.
+9. **Q: How can you access the details of an exception object in an `except` block?**
+   - **Answer**: By using the `as` keyword: `except ValueError as e:`. You can then access its message using `str(e)` or its arguments using `e.args`.
+10. **Q: What is a 'Traceback' and how can you print it manually?**
+    - **Answer**: A list showing the chain of function calls that led to an error. You can print it using the `traceback` module: `traceback.print_exc()`.
+11. **Q: How does the `with` statement simplify error handling?**
+    - **Answer**: It ensures that resources are **cleanly released** (using the `__exit__` method) as soon as the block ends, even if an error is raised inside the block.
+12. **Q: What is the `assert` statement used for?**
+    - **Answer**: for **Development-time debugging**. It checks if a condition is True and raises an `AssertionError` if not. Note: `assert` is often removed in production (`python -O`).
+13. **Q: Can you catch multiple exceptions in a single `except` block?**
+    - **Answer**: Yes, by passing them as a tuple: `except (ValueError, TypeError):`.
+14. **Q: What are 'Exception Groups' (introduced in Python 3.11)?**
+    - **Answer**: They allow a single exception to contain **multiple nested exceptions**. This is useful in asynchronous programming when multiple tasks fail simultaneously.
+15. **Q: Explain the 'Look Before You Leap' (LBYL) vs 'Easier to Ask for Forgiveness' (EAFP) styles.**
+    - **Answer**: **LBYL**: Checking if a file exists before opening it (`if os.path.exists`). **EAFP**: Trying to open the file and catching the `FileNotFoundError`. Python strongly prefers **EAFP**.
+16. **Q: What happens if an exception is raised inside a `finally` block?**
+    - **Answer**: The original exception (if any) is lost, and the new exception from the `finally` block propagates upward. This is a common source of bugs.
+17. **Q: How do you define a custom exception class?**
+    - **Answer**: By creating a class that inherits from the built-in `Exception` class: `class MyError(Exception): pass`.
+18. **Q: What is the `StopIteration` exception used for?**
+    - **Answer**: internally by iterators and `for` loops to signal that there are no more items to be produced.
+19. **Q: Why should you avoid using Exceptions for normal program flow control?**
+    - **Answer**: Because raising an exception is **Performance-heavy** (building the traceback) and it makes the code's logic harder to follow.
+20. **Q: What is the `sys.exc_info()` function?**
+    - **Answer**: A built-in function that returns a tuple about the current exception being handled (Type, Value, Traceback). It's used for deep-level debugging and custom logging.
 
 ---
 
-[← Previous: Data Structures](05-data-structures.md) | [Next: Level 2 Recap →](../Level-2/07-file-io-serialization.md)
+[Previous: Data Structures](05-data-structures.md) | [Next: File I/O →](07-file-io-serialization.md)

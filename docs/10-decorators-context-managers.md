@@ -1,138 +1,178 @@
-# 10. Decorators & Context Managers — Clean & Reusable Logic
+# 10. Decorators & Context Managers — Clean & Reusable logic
 
-> "Decorators and Context Managers are the 'Wrapper' patterns of Python. They allow you to add powerful behavior (like logging, authentication, and error retries) to existing code without cluttering your core business logic."
-
----
-
-## 🌱 The Basics: Context Managers (`with`)
-A Context Manager ensures that a resource (file, database, network) is **cleaned up** even if your code crashes.
-
-```python
-# The 'with' statement handles opening and closing automatically
-with open("test.txt", "w") as f:
-    f.write("Safe writing!")
-```
+> "Decorators and Context Managers are the 'Wrapper' patterns of Python. They allow you to add powerful behavior (like logging, authentication, and error retries) to existing code without changing its source. An expert uses these to separate 'Business Logic' from 'Infrastructure Logic'."
 
 ---
 
-## 🌿 Intermediate: Simple Decorators
-A decorator is a function that takes *another* function and adds behavior to it.
+## ❓ The 'Why' (High-Level)
+In any professional application, you have "Cross-Cutting Concerns"—tasks that need to happen in many places (e.g., checking if a user is logged in, measuring execution time, or opening a database connection). If you copy-paste this logic into every function, your code becomes unreadable and fragile. **Decorators** allow you to "wrap" functions with this logic, and **Context Managers** allow you to "wrap" blocks of code. 
 
+---
+
+## 🌱 Module 1: The Basics (Junior) — The `@` Syntax
+At its simplest, a decorator is just a function that takes a function and returns a modified version of it.
+
+### 1. Basic Decorator
 ```python
 def my_decorator(func):
     def wrapper():
-        print("--- START ---")
+        print("Something before...")
         func()
-        print("--- END ---")
+        print("Something after...")
     return wrapper
 
-@my_decorator # Using the @ syntax
-def hello():
-    print("Hello world")
-
-# hello()
+@my_decorator
+def say_hello():
+    print("Hello!")
 ```
 
----
-
-## 🌳 Advanced: Professional Decorators (*args & **kwargs)
-For real-world production, your decorator must work with functions that have any number of arguments.
-
-**Real Use (DevOps/SRE)**:
-A logging decorator that records every execution of an automation script.
-
+### 2. The `with` Statement
+Context Managers ensure that "Setup" and "Teardown" happen automatically.
 ```python
-import functools
-
-def log_execution(func):
-    @functools.wraps(func) # Keeps the original function's name and docstring
-    def wrapper(*args, **kwargs):
-        print(f"Executing {func.__name__} with {args} {kwargs}")
-        result = func(*args, **kwargs)
-        print(f"Finished {func.__name__}")
-        return result
-    return wrapper
-
-@log_execution
-def scale_cluster(namespace, replicas=3):
-    print(f"Scaling {namespace} to {replicas}")
+with open("file.txt") as f:
+    # Setup happens (file opens)
+    data = f.read()
+# Teardown happens automatically (file closes)
 ```
 
 ---
 
-## 🔥 Expert: Custom Context Managers (Class & Generator)
-Principal engineers build their own resource managers to handle complex cloud or database locks.
+## 🌿 Module 2: Professional Mastery (Mid-Level) — Power Wrapping
+Mid-level engineers write decorators that can handle arguments and preserve function identity.
 
-### 1. The Generator Pattern (`@contextmanager`)
-The simplest way to build a high-performance context manager.
+### 1. Handling Arguments with `wraps`
+Without `functools.wraps`, your decorated function "loses" its name and docstring.
+```python
+from functools import wraps
 
+def debug(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Calling {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper
+```
+
+### 2. Decorators with Parameters
+If you want to pass a value to the decorator itself (like `@retry(times=3)`), you need a "Triply-Nested" function.
+```python
+def repeat(times):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for _ in range(times): result = func(*args, **kwargs)
+            return result
+        return wrapper
+    return decorator
+```
+
+---
+
+## 🌳 Module 3: Advanced Mechanics (Senior) — Custom Contexts
+Senior engineers build their own resource-management protocols.
+
+### 1. The `@contextmanager` Decorator
+The simplest way to create a context manager without writing a full class.
 ```python
 from contextlib import contextmanager
 
 @contextmanager
-def temporary_file_lock(filename):
-    """
-    Expert Pattern: Custom Lifecycle. 
-    Demonstrates: Automating 'Setup' and 'Teardown' for production reliability.
-    """
-    print(f"SETTING LOCK ON {filename}")
+def temp_database():
+    print("Connecting...")
+    db = "Connected"
     try:
-        # This is where your code inside the 'with' block runs
-        yield f"HANDLE TO {filename}"
+        yield db  # This is the 'as' variable in the 'with' block
     finally:
-        # This code runs even if the 'with' block crashes!
-        print(f"RELEASING LOCK ON {filename}")
-
-# Usage
-# with temporary_file_lock("db.sqlite") as lock:
-#     print(f"Working on {lock}")
+        print("Disconnecting...")
 ```
+
+### 2. Handling Exceptions in `__exit__`
+When building a context manager class, you can choose to "swallow" or "propagate" an error that happens inside the block.
+
+---
+
+## 🔥 Module 4: Principal Architect (Principal) — Class Decorators
+At the highest level, you use objects to manage stateful decoration.
+
+### 1. State-Aware Class Decorators
+Using a class allows the decorator to "remember" how many times it has been called or store configuration.
+```python
+class CallCounter:
+    def __init__(self, func):
+        self.func = func
+        self.count = 0
+    def __call__(self, *args, **kwargs):
+        self.count += 1
+        return self.func(*args, **kwargs)
+```
+
+### 2. Asynchronous Context Managers
+For modern cloud apps, context managers must be `async` to handle network cleanup without blocking.
+- **Protocol**: `__aenter__` and `__aexit__`.
+
+---
+
+## 🏗️ Case Study: The API Retry & Rate-Limiter
+A fintech company was getting "Rate Limited" (Error 429) by an external bank API.
+- **The Junior Approach**: Adding `try/except` and a `time.sleep(1)` inside every API call function.
+- **The Principal Approach**: Built a single `@resilient_call` decorator that automatically handled retries, backoff timing, and error logging.
+- **Result**: The team was able to apply this protection to **all 50** bank endpoints by simply adding one `@` line above each function name.
+
+---
+
+## ⚡ Anti-Patterns & Expert Traps
+
+### 1. The "Magic" Trap
+If you use too many decorators, your code becomes "Magical"—it's hard to tell what is actually happening. **Expert fix**: Use decorators only for generic infrastructure logic, not for business rules.
+
+### 2. Forgetting `functools.wraps`
+If you forget this, debugging becomes a nightmare because error tracebacks will point to the `wrapper` instead of the real function.
 
 ---
 
 ## 🎯 Top 20 Principal Interview Questions (Decorators & Context Managers)
 
 1. **Q: What is a Decorator in Python?**
-   - **Answer**: It is a 'Wrapper' function that allows you to add functionality to an existing function or class without modifying its source code.
-2. **Q: Why use `@functools.wraps` inside a decorator?**
-   - **Answer**: It preserves the original function's **Metadata** (like `__name__` and `__doc__`). Without it, your decorated function would appear as the internal `wrapper` function in tracebacks and documentation.
-3. **Q: Explain the `__enter__` and `__exit__` methods.**
-   - **Answer**: These are the methods that define a **Context Manager**. `__enter__` handles setup (opening a file); `__exit__` handles teardown (closing the file), even if an error occurs.
-4. **Q: Can a decorator take its own arguments?**
-   - **Answer**: Yes. This requires a "Nested" decorator structure: The top function takes the arguments, the second function takes the target function, and the third function is the wrapper.
-5. **Q: What is a 'Class-Based' Decorator?**
-   - **Answer**: A class that implements `__call__`. It can store state (like a counter) across multiple calls to the decorated function.
-6. **Q: How can you decorate an entire Class?**
-   - **Answer**: By applying the `@decorator` above the class definition. It takes the class as an argument and returns either the modified original class or a completely new one.
-7. **Q: What is the `contextlib.contextmanager` decorator?**
-   - **Answer**: It allows you to build a context manager using a **Generator** (`yield`) instead of a full class with `__enter__` and `__exit__`.
-8. **Q: How do you handle 'Nested' Context Managers safely?**
-   - **Answer**: You can nest `with` statements: `with open(A) as f1, open(B) as f2:`. Or use `contextlib.ExitStack` for a dynamic number of resources.
-9. **Q: Can a decorator be used for 'Memoization'?**
-   - **Answer**: Yes. It can store a dictionary of previous results and return them instantly if the inputs are the same (see `functools.lru_cache`).
-10. **Q: What happens if an exception occurs inside the `__enter__` method?**
-    - **Answer**: The code inside the `with` block **never runs**, and the `__exit__` method is **not called**.
-11. **Q: What is the difference between `@property` and a standard decorator?**
-    - **Answer**: `@property` is a built-in decorator that turns a method into a **Descriptor** (Getter/Setter/Deleter), allowing it to be accessed like an attribute.
-12. **Q: Can you chain multiple decorators?**
-    - **Answer**: Yes. They are applied **bottom-to-top**. The one closest to the function definition is applied first.
-13. **Q: What is the `__exit__` method's return value used for?**
-    - **Answer**: If it returns `True`, it **suppresses** any exception that occurred inside the `with` block. If it returns `False` (default), the exception propagates normally.
-14. **Q: How do you decorate an 'Async' function?**
-    - **Answer**: Your wrapper function must be defined as `async def wrapper()` and you must `await` the original function inside it.
-15. **Q: What is a 'Singleton' pattern using a decorator?**
-    - **Answer**: A decorator that wraps a class and ensures only **one** instance of it ever exists in the application.
-16. **Q: How do you access the 'Original' function from a decorated one?**
-    - **Answer**: If you used `@functools.wraps`, the original function is stored in the `__wrapped__` attribute.
-17. **Q: What is the purpose of `contextlib.suppress`?**
-    - **Answer**: A high-speed context manager for ignoring specific exceptions: `with suppress(FileNotFoundError):`.
-18. **Q: Can a decorator be used for 'Role-Based Access Control'?**
-    - **Answer**: Yes. A decorator can check the current user's permissions and raise an error if they aren't authorized to call that function.
-19. **Q: What is the 'Registry' pattern with decorators?**
-    - **Answer**: Using a decorator to "Save" a reference to functions in a list or dictionary (like how Flask registers routes).
-20. **Q: What is a 'Mocking' decorator in tests?**
-    - **Answer**: `unittest.mock.patch` is a decorator that replaces a real object with a mock for the duration of the test.
+   - **Answer**: It's a high-order function that takes another function as an argument and extends its behavior without explicitly modifying its source code.
+2. **Q: Explain the `@` syntax.**
+   - **Answer**: It's "syntactic sugar" for `func = decorator(func)`. It must be placed immediately above the function definition.
+3. **Q: Why is `functools.wraps` important?**
+   - **Answer**: Because it copies the original function's **metadata** (name, docstring, and annotations) from the original function to the wrapper, making debugging and documentation tools work correctly.
+4. **Q: How do you pass arguments to a decorator itself?**
+   - **Answer**: By creating a "Decorator Factory"—a function that takes the arguments and returns the actual decorator function.
+5. **Q: What is the difference between a Function Decorator and a Class Decorator?**
+   - **Answer**: A function decorator wraps a function. A class decorator wraps a **Class Definition**, allowing you to modify how its objects are created or initialized.
+6. **Q: What is a 'Context Manager'?**
+   - **Answer**: An object that defines the runtime context to be established when executing a `with` statement. It ensures that resources are allocated and released cleanly.
+7. **Q: Explain the `__enter__` and `__exit__` methods.**
+   - **Answer**: `__enter__` runs at the start of the `with` block and returns the resource. `__exit__` runs at the end, even if an error occurred, to perform cleanup.
+8. **Q: What is the `contextlib` module?**
+   - **Answer**: A standard library module that provides utilities for working with context managers, most notably the `@contextmanager` decorator for creating them using a single generator.
+9. **Q: How do you handle an exception inside a custom Context Manager?**
+   - **Answer**: The `__exit__` method receives the exception type, value, and traceback as arguments. If `__exit__` returns `True`, the exception is "swallowed"; if it returns `False` (or None), the exception propagates.
+10. **Q: What is an 'Asynchronous Context Manager'?**
+    - **Answer**: Introduced in 3.5, it implements `__aenter__` and `__aexit__` instead of the synchronous versions. It is used with `async with` for non-blocking I/O cleanup.
+11. **Q: Can one function have multiple decorators?**
+    - **Answer**: Yes. They are applied from the **Bottom Up** (the one closest to the function runs first, and its result is passed to the one above it).
+12. **Q: What is the `yield` keyword's role in `@contextmanager`?**
+    - **Answer**: It separates the "Setup" code (everything before `yield`) from the "Teardown" code (everything after `yield`).
+13. **Q: Can a decorator be used for something other than functions and classes?**
+    - **Answer**: In Python, decorators can also be applied to **Methods** inside a class.
+14. **Q: What is 'Mojo' or 'Monkey Patching' in decorators?**
+    - **Answer**: Using a decorator to dynamically replace a function or class at runtime with a different version, often used in testing to mock out external APIs.
+15. **Q: Explain how to write a decorator that works on both functions and methods.**
+    - **Answer**: You must account for the `self` or `cls` argument that is automatically passed to methods. Using `*args` and `**kwargs` usually handles this seamlessly.
+16. **Q: What is the purpose of `contextlib.ExitStack`?**
+    - **Answer**: It allows you to enter a **Dynamic number** of context managers simultaneously, ensuring they are all closed correctly.
+17. **Q: How do you implement a 'Singleton' using a decorator?**
+    - **Answer**: By creating a decorator that stores an instance of a class in a local dictionary and returns it every time the class is "called" (instantiated).
+18. **Q: What happens if a decorator doesn't return the wrapper function?**
+    - **Answer**: The original function will be replaced by `None` (or whatever else the decorator returns), and attempting to call it will result in a `TypeError`.
+19. **Q: Can a class be used as a context manager and a decorator simultaneously?**
+    - **Answer**: Yes, by implementing `__enter__`, `__exit__`, and `__call__` in the same class.
+20. **Q: What is 'Parametric Error Handling' in context managers?**
+    - **Answer**: Using a context manager to decide whether to catch or log certain types of errors based on parameters passed to the manager (e.g., `with ignore_errors(IOError):`).
 
 ---
 
-[← Previous: Functional Programming](09-functional-programming.md) | [Next: Generators & Iterators →](11-generators-iterators.md)
+[Previous: Functional Programming](09-functional-programming.md) | [Next: Generators & Iterators →](11-generators-iterators.md)
